@@ -4,6 +4,7 @@
   "singular": true,
   "schema": {
     "type": "object",
+    "additionalProperties": false,
     "properties": {
       "name": {
         "title": "Name",

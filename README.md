@@ -1,5 +1,9 @@
 # homebridge-letpot
 
+[![npm](https://img.shields.io/npm/v/homebridge-letpot)](https://www.npmjs.com/package/homebridge-letpot)
+[![npm](https://img.shields.io/npm/dt/homebridge-letpot)](https://www.npmjs.com/package/homebridge-letpot)
+[![GitHub](https://img.shields.io/github/license/genaardo/homebridge-letpot)](LICENSE)
+
 A [Homebridge](https://homebridge.io) plugin for the [LetPot Automatic Plant Watering System](https://letpot.com/products/automatic-plant-watering-system), bringing it into Apple HomeKit.
 
 Supports the **DI-2 (ISE05)** and **DI-3 (ISE06)** models.
@@ -26,69 +30,78 @@ The plugin uses LetPot's cloud MQTT broker for real-time push updates, so state 
 
 ## Requirements
 
-- [Homebridge](https://homebridge.io) ≥ 1.6.0
-- Node.js ≥ 18
+- [Homebridge](https://homebridge.io) ≥ 1.8.0
+- Node.js 18, 20, 22, or 24
 - A LetPot account with at least one watering system paired
 
 ## Installation
 
 ### Homebridge UI (recommended)
 
-Not on npm yet — use the manual method below.
+Search for **LetPot** in the Homebridge UI plugin search and click **Install**.
 
-### Manual (Homebridge Docker)
+### Command line
 
-1. **Build the tarball** on your development machine:
+```bash
+npm install -g homebridge-letpot
+```
+
+### Homebridge Docker (manual install)
+
+If your Homebridge runs in Docker and you want to install from source:
+
+1. **Clone and build:**
    ```bash
-   git clone https://github.com/genaardobatskiy/homebridge-letpot.git
+   git clone https://github.com/genaardo/homebridge-letpot.git
    cd homebridge-letpot
-   npm install
-   npm run build
-   npm pack
+   npm install && npm run build && npm pack
    ```
 
-2. **Copy to your Homebridge host** (adjust hostname and paths):
+2. **Copy to your Homebridge host:**
    ```bash
-   scp homebridge-letpot-*.tgz user@homebridge-host:/path/to/homebridge/volumes/homebridge/
+   scp homebridge-letpot-*.tgz user@host:/path/to/homebridge/volumes/homebridge/
    ```
 
-3. **Install inside the container** (the `/homebridge` volume path makes the tarball visible):
+3. **Install inside the container:**
    ```bash
    docker exec <container> sh -c "cd /homebridge && npm install /homebridge/homebridge-letpot-*.tgz"
    docker restart <container>
    ```
 
-4. **Add to `config.json`** (or via the Homebridge UI → Config editor):
-   ```json
-   {
-     "platforms": [
-       {
-         "platform": "LetPot",
-         "name": "LetPot",
-         "email": "your@email.com",
-         "password": "yourpassword"
-       }
-     ]
-   }
-   ```
-
 ## Configuration
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `platform` | string | Yes | Must be `"LetPot"` |
-| `name` | string | Yes | Display name (e.g. `"LetPot"`) |
-| `email` | string | Yes | Your LetPot account email |
-| `password` | string | Yes | Your LetPot account password |
-| `notifyPumpOn` | boolean | No | Add "Pump Started" motion sensor (default: `true`) |
-| `notifyPumpOff` | boolean | No | Add "Pump Stopped" motion sensor (default: `true`) |
+Add the platform to your Homebridge `config.json`, or configure it through the Homebridge UI:
+
+```json
+{
+  "platforms": [
+    {
+      "platform": "LetPot",
+      "name": "LetPot",
+      "email": "your@email.com",
+      "password": "yourpassword"
+    }
+  ]
+}
+```
+
+### Options
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `platform` | string | Yes | — | Must be `"LetPot"` |
+| `name` | string | Yes | — | Display name |
+| `email` | string | Yes | — | Your LetPot account email |
+| `password` | string | Yes | — | Your LetPot account password |
+| `notifyPumpOn` | boolean | No | `true` | Add "Pump Started" motion sensor |
+| `notifyPumpOff` | boolean | No | `true` | Add "Pump Stopped" motion sensor |
 
 ## How it works
 
 1. On startup the plugin authenticates with the LetPot REST API (`api.letpot.net`) using your email and password to obtain access and refresh tokens.
 2. It fetches your device list and registers each ISE05/ISE06 watering system as a Homebridge accessory.
 3. It opens an MQTT-over-WebSocket connection to `broker.letpot.net` and subscribes to each device's status topic for real-time push updates.
-4. Controlling the valve in HomeKit publishes a command message back over the same MQTT connection.
+4. Controlling a service in HomeKit publishes a command message back over the same MQTT connection.
 5. Access tokens are refreshed every 50 minutes in the background; the MQTT client reconnects automatically on drop.
 
 ## Development
