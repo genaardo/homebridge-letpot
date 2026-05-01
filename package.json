@@ -1,0 +1,33 @@
+{
+  "name": "homebridge-letpot",
+  "version": "0.1.0",
+  "description": "Homebridge plugin for LetPot automatic plant watering systems",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "letpot",
+    "watering",
+    "irrigation",
+    "homekit"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "homebridge": ">=1.6.0"
+  },
+  "dependencies": {
+    "mqtt": "^5.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "homebridge": "^1.8.4",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "homebridge": ">=1.6.0"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "pluginAlias": "LetPot",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "LetPot",
+        "required": true
+      },
+      "email": {
+        "title": "LetPot Account Email",
+        "type": "string",
+        "format": "email",
+        "required": true
+      },
+      "password": {
+        "title": "LetPot Account Password",
+        "type": "string",
+        "required": true
+      }
+    }
+  }
+}
