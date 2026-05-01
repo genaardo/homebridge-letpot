@@ -94,20 +94,29 @@ export class LetPotPlatform implements DynamicPlatformPlugin {
     const existing = this.cachedAccessories.find(a => a.UUID === uuid);
 
     let platformAccessory: PlatformAccessory;
+    const isNew = !existing;
+
     if (existing) {
       existing.context.device = device;
-      this.api.updatePlatformAccessories([existing]);
       platformAccessory = existing;
-      this.log.info(`Restoring accessory from cache: ${device.name}`);
     } else {
       platformAccessory = new this.api.platformAccessory(device.name, uuid);
       platformAccessory.context.device = device;
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [platformAccessory]);
-      this.log.info(`Registering new accessory: ${device.name}`);
     }
 
+    // Build all services onto the accessory BEFORE registering/updating so
+    // Homebridge saves the complete service list and HomeKit gets the full
+    // accessory definition in a single announcement.
     const acc = new WateringSystemAccessory(this, platformAccessory);
     this.accessories.set(device.serialNumber, acc);
+
+    if (isNew) {
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [platformAccessory]);
+      this.log.info(`Registering new accessory: ${device.name}`);
+    } else {
+      this.api.updatePlatformAccessories([platformAccessory]);
+      this.log.info(`Restoring accessory from cache: ${device.name}`);
+    }
 
     this.mqttClient.subscribe(device.serialNumber, status => acc.updateStatus(status));
 
