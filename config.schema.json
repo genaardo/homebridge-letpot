@@ -21,6 +21,18 @@
         "title": "LetPot Account Password",
         "type": "string",
         "required": true
+      },
+      "notifyPumpOn": {
+        "title": "Notify when pump starts",
+        "description": "Adds a 'Pump Started' motion sensor that briefly triggers each time the pump turns on. Enable notifications for it in the Home app.",
+        "type": "boolean",
+        "default": true
+      },
+      "notifyPumpOff": {
+        "title": "Notify when pump stops",
+        "description": "Adds a 'Pump Stopped' motion sensor that briefly triggers each time the pump turns off. Enable notifications for it in the Home app.",
+        "type": "boolean",
+        "default": true
       }
     }
   }

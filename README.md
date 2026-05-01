@@ -6,15 +6,21 @@ Supports the **DI-2 (ISE05)** and **DI-3 (ISE06)** models.
 
 ## Features
 
-Each device is exposed to HomeKit as two services:
+Each device is exposed to HomeKit as a set of services:
 
 | Service | Characteristic | Description |
 |---|---|---|
-| **Valve** (Irrigation) | Active | Enable / disable scheduled watering |
+| **Valve** (Irrigation) | Active | Enable / disable scheduled watering (`pump_mode`) |
 | | In Use | Live indicator — pump is currently running |
-| | Set Duration | Manual run duration (minutes → seconds) |
+| | Set Duration | Manual run duration in seconds |
 | | Remaining Duration | Countdown to end of current watering run |
-| **Leak Sensor** | Leak Detected | Fires when the device reports low water |
+| **Switch** "Auto Cycle" | On | Enable / disable the automated cycling schedule |
+| **Switch** "Intermittent Mode" | On | Toggle between continuous and intermittent cycle mode |
+| **Leak Sensor** "Low Water" | Leak Detected | Fires when the device reports low water |
+| **Motion Sensor** "Pump Started" | Motion Detected | Pulses for 5 s each time the pump turns on *(optional)* |
+| **Motion Sensor** "Pump Stopped" | Motion Detected | Pulses for 5 s each time the pump turns off *(optional)* |
+
+The two motion sensors are designed for notifications. Once added to the Home app, go to each sensor's settings and enable **Allow Notifications** — iOS will then alert you whenever the pump starts or stops. Each sensor is independently enabled via `notifyPumpOn` / `notifyPumpOff` in the plugin config (both default to `true`).
 
 The plugin uses LetPot's cloud MQTT broker for real-time push updates, so state changes in the LetPot iOS app are reflected in HomeKit immediately.
 
@@ -74,6 +80,8 @@ Not on npm yet — use the manual method below.
 | `name` | string | Yes | Display name (e.g. `"LetPot"`) |
 | `email` | string | Yes | Your LetPot account email |
 | `password` | string | Yes | Your LetPot account password |
+| `notifyPumpOn` | boolean | No | Add "Pump Started" motion sensor (default: `true`) |
+| `notifyPumpOff` | boolean | No | Add "Pump Stopped" motion sensor (default: `true`) |
 
 ## How it works
 
