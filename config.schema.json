@@ -5,23 +5,21 @@
   "schema": {
     "type": "object",
     "additionalProperties": false,
+    "required": ["name", "email", "password"],
     "properties": {
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "LetPot",
-        "required": true
+        "default": "LetPot"
       },
       "email": {
         "title": "LetPot Account Email",
         "type": "string",
-        "format": "email",
-        "required": true
+        "format": "email"
       },
       "password": {
         "title": "LetPot Account Password",
-        "type": "string",
-        "required": true
+        "type": "string"
       },
       "notifyPumpOn": {
         "title": "Notify when pump starts",

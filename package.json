@@ -1,7 +1,7 @@
 {
   "name": "homebridge-letpot",
   "displayName": "LetPot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Homebridge plugin for LetPot automatic plant watering systems (ISE05/ISE06)",
   "license": "MIT",
   "author": "Gena Ardobatskiy",
@@ -35,7 +35,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "homebridge": "^1.8.4",
     "typescript": "^5.5.0"
   },
   "peerDependencies": {
