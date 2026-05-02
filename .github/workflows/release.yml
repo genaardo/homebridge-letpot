@@ -35,11 +35,18 @@ jobs:
       - name: Read new version
         id: pkg
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-      - name: Create GitHub release
-        run: gh release create "v${{ steps.pkg.outputs.version }}" --generate-notes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish to npm
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Create GitHub release
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD^)
+          else
+            NOTES=$(git log --pretty=format:"- %s" HEAD^)
+          fi
+          gh release create "v${{ steps.pkg.outputs.version }}" --title "v${{ steps.pkg.outputs.version }}" --notes "$NOTES" --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
