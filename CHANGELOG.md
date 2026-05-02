@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.2 - 2026-05-02
+
+- feat: replace stateless switches with occupancy sensors for native Home app notifications
+- docs: fix watering notification setup instructions
+- fix: pull --rebase before push to handle concurrent commits during release
+- fix: use annotated tag so --follow-tags pushes it to remote
+
+
 ## v0.4.1 - 2026-05-02
 
 - docs: document Eve/Home+ custom characteristics
