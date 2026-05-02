@@ -95,13 +95,22 @@ Add the platform to your Homebridge `config.json`, or configure it through the H
 
 ## Scheduling watering via HomeKit
 
-HomeKit has no native schedule editor for irrigation, but Home app **Automations** work great as a replacement and are more flexible than the LetPot app's built-in scheduler:
+HomeKit has no native schedule editor for irrigation, but Home app **Automations** work great as a replacement and are more flexible than the LetPot app's built-in scheduler. You can add conditions (e.g. only on weekdays, only when someone is home), use different durations on different days, chain multiple actions, or trigger Shortcuts. If you set up HomeKit automations, disable the corresponding schedule in the LetPot app to avoid both firing at the same time.
 
-1. In the Home app, tap the Pump tile, then adjust the **duration** slider to your desired watering duration (e.g. 15 minutes). This value is saved to the device.
-2. Go to **Automations** and create a time-based automation at your desired start time (e.g. 06:00) with the action: turn the **Pump** on.
-3. The HomeKit hub (HomePod or Apple TV) will automatically turn the Pump off after the configured duration — no second automation needed.
+**Fixed duration (simplest)**
 
-You can add conditions (e.g. only on weekdays, only when someone is home), chain multiple actions, or trigger Shortcuts — none of which are possible in the LetPot app. If you set up HomeKit automations, disable the corresponding schedule in the LetPot app to avoid both firing at the same time.
+1. In the Home app, tap the Pump tile and adjust the **duration** slider to your desired run time (e.g. 15 minutes). This value is saved to the device.
+2. Create a time-based automation at your desired start time (e.g. 06:00) with the action: turn the **Pump** on.
+3. The pump runs for the configured duration and turns off automatically — no second automation needed.
+
+**Variable duration (e.g. longer on weekends)**
+
+Set the Pump duration slider to a value longer than your longest intended watering window (e.g. 60 minutes). Then create two automations per schedule:
+
+- **On** automation at 06:00 → turn Pump on
+- **Off** automation at 06:15 (or 06:30 on weekends, etc.) → turn Pump off
+
+The off automation controls the actual run time; the 60-minute duration acts as a safety backstop and never triggers as long as the off automation fires first.
 
 ## How it works
 
