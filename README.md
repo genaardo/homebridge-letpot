@@ -27,6 +27,18 @@ The two stateless switches ("Watering Started" / "Watering Ended") are designed 
 
 The plugin uses LetPot's cloud MQTT broker for real-time push updates, so state changes in the LetPot iOS app are reflected in HomeKit immediately.
 
+### Eve and Home+ extras
+
+Users of [Eve](https://www.evehome.com/en/eve-app) or [Home+](https://hochgatterer.me/home+/) get three additional read-only fields on the Pump, populated from device telemetry:
+
+| Characteristic | Description |
+|---|---|
+| Last Watered | Timestamp of the most recent pump run |
+| Next Watering | Timestamp of the next scheduled run |
+| Last Watering Reason | What triggered the last run: 0 = none, 1 = interrupted, 2 = manual, 3 = cycle, 4 = scheduled |
+
+These use custom UUIDs and are invisible in Apple Home.
+
 ## Requirements
 
 - [Homebridge](https://homebridge.io) ≥ 1.8.0
