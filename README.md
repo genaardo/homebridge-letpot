@@ -112,6 +112,56 @@ Set the Pump duration slider to a value longer than your longest intended wateri
 
 The off automation controls the actual run time; the 60-minute duration acts as a safety backstop and never triggers as long as the off automation fires first.
 
+## Automation cookbook
+
+A few ideas for what you can do once the plugin is running. All of these use the Home app's built-in Automations tab unless noted.
+
+### Watering notifications
+
+The "Watering Started" and "Watering Ended" stateless switches fire a single-press event every time the pump turns on or off. Use them to get a push notification:
+
+1. In the Home app, go to **Automations → +** and choose **An Accessory is Controlled**.
+2. Select **Watering Started**, then **Single Press**.
+3. Set the action to **Send Notification** (or use a Shortcuts action for a custom message).
+4. Repeat for **Watering Ended**.
+
+You get separate notifications for start and end, each independently toggleable.
+
+### Low water alert
+
+The "Low Water" leak sensor triggers HomeKit's built-in leak notifications automatically — no automation needed. Just go to the sensor's settings in the Home app and make sure **Allow Notifications** is enabled.
+
+### "Water my plants" Siri shortcut
+
+You can already say "Hey Siri, turn on Pump" and it works. For something more natural, open the **Shortcuts** app, create a shortcut that turns the Pump on via HomeKit, and name it "Water my plants." Siri will run it on command.
+
+### Morning watering scene
+
+Create a scene called "Good Morning" that turns the Pump on alongside other actions (lights, coffee maker, etc.). The pump runs for its configured duration and shuts off on its own.
+
+### Vacation mode
+
+Before leaving for a trip, run a "Leaving for a few days" shortcut or scene that:
+
+- Turns **Cycle Watering** on (so the device waters on its own schedule while you are away)
+- Optionally bumps the Pump duration to a longer value for deeper watering
+
+Pair it with a **Low Water** notification so you know if the tank runs dry while you are gone.
+
+### Skip watering when it rains
+
+If you have a weather station or rain sensor in HomeKit (e.g. Netatmo, Eve Weather, Ecowitt), you can add a condition to your watering automation:
+
+- Trigger: time (e.g. 06:00)
+- Condition: **Rain Sensor** is not active (or humidity below a threshold)
+- Action: turn Pump on
+
+This keeps the automation but prevents watering after rainfall without any manual intervention.
+
+### Child bridge (isolation)
+
+If Homebridge hosts other plugins and you want to isolate a crash, you can run homebridge-letpot as a **Child Bridge**. In the Homebridge UI, go to the plugin settings and enable **Child Bridge**. The plugin gets its own process — a crash or restart does not affect the rest of your accessories.
+
 ## How it works
 
 1. On startup the plugin authenticates with the LetPot REST API (`api.letpot.net`) using your email and password to obtain access and refresh tokens.
