@@ -12,11 +12,17 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -24,29 +30,50 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run build
+      - run: npm run lint
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Bump version and tag
-        run: npm version ${{ inputs.version }} -m "v%s"
-      - name: Push
-        run: git push origin HEAD --follow-tags
+      - name: Bump version (no commit yet)
+        run: npm version ${{ inputs.version }} --no-git-tag-version
       - name: Read new version
         id: pkg
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      - name: Update CHANGELOG
+        id: changelog
+        run: |
+          VERSION="${{ steps.pkg.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            CHANGES=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD)
+          else
+            CHANGES=$(git log --pretty=format:"- %s")
+          fi
+          ENTRY="## v$VERSION - $DATE\n\n$CHANGES"
+          # Prepend new entry after the first line (# Changelog)
+          awk -v entry="$ENTRY" 'NR==1{print; print ""; print entry; print ""} NR>1' CHANGELOG.md > CHANGELOG.tmp
+          mv CHANGELOG.tmp CHANGELOG.md
+          # Save entry for release notes (newlines escaped for GitHub output)
+          echo "entry<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$ENTRY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Commit and tag
+        run: |
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "v${{ steps.pkg.outputs.version }}"
+          git tag "v${{ steps.pkg.outputs.version }}"
+          git push origin HEAD --follow-tags
       - name: Publish to npm
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create GitHub release
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD^)
-          else
-            NOTES=$(git log --pretty=format:"- %s" HEAD^)
-          fi
-          gh release create "v${{ steps.pkg.outputs.version }}" --title "v${{ steps.pkg.outputs.version }}" --notes "$NOTES" --latest
+          gh release create "v${{ steps.pkg.outputs.version }}" \
+            --title "v${{ steps.pkg.outputs.version }}" \
+            --notes "${{ steps.changelog.outputs.entry }}" \
+            --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -16,8 +16,9 @@
   "homepage": "https://github.com/genaardo/homebridge-letpot#readme",
   "scripts": {
     "build": "tsc",
+    "lint": "eslint src --max-warnings=0",
     "watch": "tsc --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build && npm run lint"
   },
   "keywords": [
     "homebridge-plugin",
@@ -34,8 +35,11 @@
     "mqtt": "^5.10.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.0.0",
+    "eslint": "^10.3.0",
     "homebridge": "^1.8.4",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.59.1"
   }
 }
