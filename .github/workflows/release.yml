@@ -64,6 +64,7 @@ jobs:
           git add package.json package-lock.json CHANGELOG.md
           git commit -m "v${{ steps.pkg.outputs.version }}"
           git tag -a "v${{ steps.pkg.outputs.version }}" -m "v${{ steps.pkg.outputs.version }}"
+          git pull --rebase origin main
           git push origin HEAD --follow-tags
       - name: Publish to npm
         run: npm publish
