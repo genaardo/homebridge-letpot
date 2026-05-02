@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.1 - 2026-05-02
+
+- docs: document Eve/Home+ custom characteristics
+- feat: add Eve/Home+ custom characteristics for last watered, next watering, and watering reason
+- docs: add automation cookbook to README
+- docs: correct CHANGELOG to match actual release history
+- chore: add ESLint, CHANGELOG, and CI concurrency
+- chore: update author name
+
+
 ## v0.4.0 - 2026-05-02
 
 Improved HomeKit service names and notification model.
