@@ -130,14 +130,19 @@ A few ideas for what you can do once the plugin is running. All of these use the
 
 ### Watering notifications
 
-The "Watering Started" and "Watering Ended" stateless switches fire a single-press event every time the pump turns on or off. Use them to get a push notification:
+The "Watering Started" and "Watering Ended" stateless switches fire a single-press event every time the pump turns on or off.
 
-1. In the Home app, go to **Automations → +** and choose **An Accessory is Controlled**.
-2. Select **Watering Started**, then **Single Press**.
-3. Set the action to **Send Notification** (or use a Shortcuts action for a custom message).
-4. Repeat for **Watering Ended**.
+**Simplest — native Home notification**
 
-You get separate notifications for start and end, each independently toggleable.
+Long-press the **Watering Started** tile → tap the settings icon (gear) → enable **Allow Notifications**. HomeKit will send a push notification whenever the switch fires. Repeat for **Watering Ended**. Each is independently toggleable.
+
+**Custom message — via Shortcuts**
+
+1. In the Shortcuts app, create a shortcut with a **Send Notification** action and your desired message (e.g. "Watering started").
+2. In the Home app, go to **Automations → Add Automation** and choose **An Accessory is Controlled**.
+3. Select **Watering Started**, then **Single Press**.
+4. Set the action to **Run Shortcut** and pick the shortcut you created.
+5. Repeat for **Watering Ended** with a separate shortcut.
 
 ### Low water alert
 
