@@ -1,6 +1,11 @@
-import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
+import { Characteristic, CharacteristicValue, Formats, PlatformAccessory, Perms, Service } from 'homebridge';
 import { LetPotPlatform } from './platform';
 import { WateringSystemStatus } from './models';
+
+// Custom characteristic UUIDs — visible in Eve and Home+, no effect on Apple Home
+const UUID_LAST_WATERED    = 'A9E3F1B2-C4D5-4E6F-A7B8-C9D0E1F20001';
+const UUID_NEXT_WATERING   = 'A9E3F1B2-C4D5-4E6F-A7B8-C9D0E1F20002';
+const UUID_WATERING_REASON = 'A9E3F1B2-C4D5-4E6F-A7B8-C9D0E1F20003';
 
 export class WateringSystemAccessory {
   private valveService: Service;
@@ -8,6 +13,9 @@ export class WateringSystemAccessory {
   private leakService: Service;
   private wateringStartedSwitch: Service;
   private wateringEndedSwitch: Service;
+  private lastWateredChar: Characteristic;
+  private nextWateringChar: Characteristic;
+  private wateringReasonChar: Characteristic;
 
   private status: WateringSystemStatus | null = null;
   private prevPumpOn: boolean | null = null;
@@ -56,6 +64,21 @@ export class WateringSystemAccessory {
 
     this.valveService.getCharacteristic(Characteristic.RemainingDuration)
       .onGet(this.getRemainingDuration.bind(this));
+
+    // --- Custom characteristics (Eve / Home+ only) ---
+    // Unix timestamps (uint32, seconds since 1970). Apple Home ignores unknown UUIDs.
+    this.lastWateredChar = new Characteristic('Last Watered', UUID_LAST_WATERED, {
+      format: Formats.UINT32, perms: [Perms.NOTIFY, Perms.PAIRED_READ],
+    });
+    this.nextWateringChar = new Characteristic('Next Watering', UUID_NEXT_WATERING, {
+      format: Formats.UINT32, perms: [Perms.NOTIFY, Perms.PAIRED_READ],
+    });
+    this.wateringReasonChar = new Characteristic('Last Watering Reason', UUID_WATERING_REASON, {
+      format: Formats.UINT8, perms: [Perms.NOTIFY, Perms.PAIRED_READ], minValue: 0, maxValue: 4,
+    });
+    this.valveService.addCharacteristic(this.lastWateredChar);
+    this.valveService.addCharacteristic(this.nextWateringChar);
+    this.valveService.addCharacteristic(this.wateringReasonChar);
 
     // --- Cycle Watering (Switch) ---
     // Matches the "Cycle Watering" toggle in the LetPot app (pump_cycle_on)
@@ -137,6 +160,14 @@ export class WateringSystemAccessory {
 
     this.cycleWateringSwitch.updateCharacteristic(Characteristic.On, status.pumpCycleOn);
     this.leakService.updateCharacteristic(Characteristic.LeakDetected, status.errors.lowWater ? 1 : 0);
+
+    this.lastWateredChar.updateValue(
+      status.pumpWorksLatestTime ? Math.floor(status.pumpWorksLatestTime.getTime() / 1000) : 0,
+    );
+    this.nextWateringChar.updateValue(
+      status.pumpWorksNextTime ? Math.floor(status.pumpWorksNextTime.getTime() / 1000) : 0,
+    );
+    this.wateringReasonChar.updateValue(status.pumpWorksLatestReason);
   }
 
   private removeStaleService(serviceType: typeof Service.prototype.constructor, subtype: string): void {
