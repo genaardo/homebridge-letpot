@@ -93,6 +93,16 @@ Add the platform to your Homebridge `config.json`, or configure it through the H
 | `email` | string | Yes | — | Your LetPot account email |
 | `password` | string | Yes | — | Your LetPot account password |
 
+## Scheduling watering via HomeKit
+
+HomeKit has no native schedule editor for irrigation, but Home app **Automations** work great as a replacement and are more flexible than the LetPot app's built-in scheduler:
+
+1. In the Home app, go to **Automations** and create a new time-based automation.
+2. Set the trigger time (e.g. 06:00) and action: turn the **Pump** valve on.
+3. Create a second automation at your desired end time (e.g. 06:15) to turn the Pump off.
+
+You can add conditions (e.g. only on weekdays, only when someone is home), chain multiple actions, or trigger Shortcuts — none of which are possible in the LetPot app. If you set up HomeKit automations, disable the corresponding schedule in the LetPot app to avoid both firing at the same time.
+
 ## How it works
 
 1. On startup the plugin authenticates with the LetPot REST API (`api.letpot.net`) using your email and password to obtain access and refresh tokens.
