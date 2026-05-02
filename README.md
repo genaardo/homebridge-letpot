@@ -14,17 +14,16 @@ Each device is exposed to HomeKit as a set of services:
 
 | Service | Characteristic | Description |
 |---|---|---|
-| **Valve** (Irrigation) | Active | Enable / disable scheduled watering (`pump_mode`) |
+| **Valve** "Pump" | Active | Enable / disable scheduled watering (`pump_mode`) |
 | | In Use | Live indicator — pump is currently running |
 | | Set Duration | Manual run duration in seconds |
 | | Remaining Duration | Countdown to end of current watering run |
-| **Switch** "Auto Cycle" | On | Enable / disable the automated cycling schedule |
-| **Switch** "Intermittent Mode" | On | Toggle between continuous and intermittent cycle mode |
+| **Switch** "Cycle Watering" | On | Enable / disable the automated cycling schedule |
 | **Leak Sensor** "Low Water" | Leak Detected | Fires when the device reports low water |
-| **Motion Sensor** "Pump Started" | Motion Detected | Pulses for 5 s each time the pump turns on *(optional)* |
-| **Motion Sensor** "Pump Stopped" | Motion Detected | Pulses for 5 s each time the pump turns off *(optional)* |
+| **Stateless Switch** "Watering Started" | Single Press | Fires each time the pump turns on |
+| **Stateless Switch** "Watering Ended" | Single Press | Fires each time the pump turns off |
 
-The two motion sensors are designed for notifications. Once added to the Home app, go to each sensor's settings and enable **Allow Notifications** — iOS will then alert you whenever the pump starts or stops. Each sensor is independently enabled via `notifyPumpOn` / `notifyPumpOff` in the plugin config (both default to `true`).
+The two stateless switches ("Watering Started" / "Watering Ended") are designed for automations and notifications. In the Home app or a third-party app like Eve or Home+, create an automation triggered by a single press on either switch — for example, to send a notification or run a shortcut whenever watering begins or ends.
 
 The plugin uses LetPot's cloud MQTT broker for real-time push updates, so state changes in the LetPot iOS app are reflected in HomeKit immediately.
 
@@ -93,8 +92,6 @@ Add the platform to your Homebridge `config.json`, or configure it through the H
 | `name` | string | Yes | — | Display name |
 | `email` | string | Yes | — | Your LetPot account email |
 | `password` | string | Yes | — | Your LetPot account password |
-| `notifyPumpOn` | boolean | No | `true` | Add "Pump Started" motion sensor |
-| `notifyPumpOff` | boolean | No | `true` | Add "Pump Stopped" motion sensor |
 
 ## How it works
 

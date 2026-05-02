@@ -1,14 +1,13 @@
 import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { LetPotPlatform } from './platform';
-import { CycleWateringMode, WateringSystemStatus } from './models';
+import { WateringSystemStatus } from './models';
 
 export class WateringSystemAccessory {
   private valveService: Service;
-  private cycleSwitch: Service;
-  private intermittentSwitch: Service;
+  private cycleWateringSwitch: Service;
   private leakService: Service;
-  private pumpStartedSensor: Service | null = null;
-  private pumpStoppedSensor: Service | null = null;
+  private wateringStartedSwitch: Service;
+  private wateringEndedSwitch: Service;
 
   private status: WateringSystemStatus | null = null;
   private prevPumpOn: boolean | null = null;
@@ -20,17 +19,28 @@ export class WateringSystemAccessory {
     const { Service, Characteristic } = platform;
     const device = accessory.context.device;
 
+    // --- Migrate stale services from previous plugin versions ---
+    this.removeStaleService(Service.MotionSensor, 'pump-started');
+    this.removeStaleService(Service.MotionSensor, 'pump-stopped');
+    this.removeStaleService(Service.Switch, 'intermittent-mode');
+    this.removeStaleService(Service.Switch, 'auto-cycle');
+
+    // --- Accessory information ---
     accessory.getService(Service.AccessoryInformation)!
       .setCharacteristic(Characteristic.Manufacturer, 'LetPot')
       .setCharacteristic(Characteristic.Model, device.deviceType)
       .setCharacteristic(Characteristic.SerialNumber, device.serialNumber);
 
-    // Valve — scheduled watering on/off, running status, duration
+    // --- Pump (Valve) ---
+    // Active  → pump on/off (pump_mode)
+    // InUse   → pump currently running (pump_on)
+    // SetDuration / RemainingDuration → manual run timing
     this.valveService = accessory.getService(Service.Valve)
-      ?? accessory.addService(Service.Valve, device.name);
+      ?? accessory.addService(Service.Valve, 'Pump', 'pump');
 
     this.valveService
-      .setCharacteristic(Characteristic.Name, device.name)
+      .setCharacteristic(Characteristic.Name, 'Pump')
+      .setCharacteristic(Characteristic.ConfiguredName, 'Pump')
       .setCharacteristic(Characteristic.ValveType, 1); // Irrigation
 
     this.valveService.getCharacteristic(Characteristic.Active)
@@ -47,67 +57,75 @@ export class WateringSystemAccessory {
     this.valveService.getCharacteristic(Characteristic.RemainingDuration)
       .onGet(this.getRemainingDuration.bind(this));
 
-    // Auto Cycle switch — enables/disables the automated cycling schedule
-    this.cycleSwitch = accessory.getServiceById(Service.Switch, 'auto-cycle')
-      ?? accessory.addService(Service.Switch, 'Auto Cycle', 'auto-cycle');
+    // --- Cycle Watering (Switch) ---
+    // Matches the "Cycle Watering" toggle in the LetPot app (pump_cycle_on)
+    this.cycleWateringSwitch = accessory.getServiceById(Service.Switch, 'cycle-watering')
+      ?? accessory.addService(Service.Switch, 'Cycle Watering', 'cycle-watering');
 
-    this.cycleSwitch.setCharacteristic(Characteristic.Name, 'Auto Cycle');
-    this.cycleSwitch.getCharacteristic(Characteristic.On)
-      .onGet(this.getCycleOn.bind(this))
-      .onSet(this.setCycleOn.bind(this));
+    this.cycleWateringSwitch
+      .setCharacteristic(Characteristic.Name, 'Cycle Watering')
+      .setCharacteristic(Characteristic.ConfiguredName, 'Cycle Watering');
 
-    // Intermittent Mode switch — continuous vs. intermittent cycle
-    this.intermittentSwitch = accessory.getServiceById(Service.Switch, 'intermittent-mode')
-      ?? accessory.addService(Service.Switch, 'Intermittent Mode', 'intermittent-mode');
+    this.cycleWateringSwitch.getCharacteristic(Characteristic.On)
+      .onGet(this.getCycleWatering.bind(this))
+      .onSet(this.setCycleWatering.bind(this));
 
-    this.intermittentSwitch.setCharacteristic(Characteristic.Name, 'Intermittent Mode');
-    this.intermittentSwitch.getCharacteristic(Characteristic.On)
-      .onGet(this.getIntermittentMode.bind(this))
-      .onSet(this.setIntermittentMode.bind(this));
-
-    // Low Water leak sensor
-    this.leakService = accessory.getService(Service.LeakSensor)
+    // --- Low Water (Leak Sensor) ---
+    // Persistent state — stays triggered until tank is refilled
+    this.leakService = accessory.getServiceById(Service.LeakSensor, 'low-water')
       ?? accessory.addService(Service.LeakSensor, 'Low Water', 'low-water');
+
+    this.leakService
+      .setCharacteristic(Characteristic.Name, 'Low Water')
+      .setCharacteristic(Characteristic.ConfiguredName, 'Low Water');
 
     this.leakService.getCharacteristic(Characteristic.LeakDetected)
       .onGet(this.getLeakDetected.bind(this));
 
-    // Pump Started motion sensor — briefly triggers when the pump turns on.
-    // Enable notifications in the Home app on this sensor for pump-on alerts.
-    // Controlled by notifyPumpOn in config (default: true).
-    const existingStarted = accessory.getServiceById(Service.MotionSensor, 'pump-started');
-    if (platform.config['notifyPumpOn'] !== false) {
-      this.pumpStartedSensor = existingStarted
-        ?? accessory.addService(Service.MotionSensor, 'Pump Started', 'pump-started');
-      this.pumpStartedSensor.setCharacteristic(Characteristic.Name, 'Pump Started');
-      this.pumpStartedSensor.getCharacteristic(Characteristic.MotionDetected).onGet(() => false);
-    } else if (existingStarted) {
-      accessory.removeService(existingStarted);
-    }
+    // --- Event switches (StatelessProgrammableSwitch) ---
+    // Fire a single-press event on pump state transitions.
+    // Users set up automations in the Home app (or Eve/Home+) to get notifications.
+    // Note: Apple Home shows these as "#1" / "#2"; third-party apps show the full name.
+    const serviceLabel = accessory.getService(Service.ServiceLabel)
+      ?? accessory.addService(Service.ServiceLabel);
+    serviceLabel.setCharacteristic(
+      Characteristic.ServiceLabelNamespace,
+      Characteristic.ServiceLabelNamespace.ARABIC_NUMERALS,
+    );
 
-    // Pump Stopped motion sensor — briefly triggers when the pump turns off.
-    // Controlled by notifyPumpOff in config (default: true).
-    const existingStopped = accessory.getServiceById(Service.MotionSensor, 'pump-stopped');
-    if (platform.config['notifyPumpOff'] !== false) {
-      this.pumpStoppedSensor = existingStopped
-        ?? accessory.addService(Service.MotionSensor, 'Pump Stopped', 'pump-stopped');
-      this.pumpStoppedSensor.setCharacteristic(Characteristic.Name, 'Pump Stopped');
-      this.pumpStoppedSensor.getCharacteristic(Characteristic.MotionDetected).onGet(() => false);
-    } else if (existingStopped) {
-      accessory.removeService(existingStopped);
-    }
+    this.wateringStartedSwitch = accessory.getServiceById(Service.StatelessProgrammableSwitch, 'watering-started')
+      ?? accessory.addService(Service.StatelessProgrammableSwitch, 'Watering Started', 'watering-started');
+
+    this.wateringStartedSwitch
+      .setCharacteristic(Characteristic.Name, 'Watering Started')
+      .setCharacteristic(Characteristic.ConfiguredName, 'Watering Started')
+      .setCharacteristic(Characteristic.ServiceLabelIndex, 1);
+
+    this.wateringStartedSwitch.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+      .setProps({ validValues: [Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS] });
+
+    this.wateringEndedSwitch = accessory.getServiceById(Service.StatelessProgrammableSwitch, 'watering-ended')
+      ?? accessory.addService(Service.StatelessProgrammableSwitch, 'Watering Ended', 'watering-ended');
+
+    this.wateringEndedSwitch
+      .setCharacteristic(Characteristic.Name, 'Watering Ended')
+      .setCharacteristic(Characteristic.ConfiguredName, 'Watering Ended')
+      .setCharacteristic(Characteristic.ServiceLabelIndex, 2);
+
+    this.wateringEndedSwitch.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+      .setProps({ validValues: [Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS] });
   }
 
   updateStatus(status: WateringSystemStatus): void {
     const { Characteristic } = this.platform;
 
-    // Fire notification sensors on pump state transitions
+    // Detect pump on/off transitions and fire the appropriate event switch
     if (this.prevPumpOn !== null && status.pumpOn !== this.prevPumpOn) {
-      if (status.pumpOn && this.pumpStartedSensor) {
-        this.triggerMotionSensor(this.pumpStartedSensor);
-      } else if (!status.pumpOn && this.pumpStoppedSensor) {
-        this.triggerMotionSensor(this.pumpStoppedSensor);
-      }
+      const eventSwitch = status.pumpOn ? this.wateringStartedSwitch : this.wateringEndedSwitch;
+      eventSwitch.updateCharacteristic(
+        Characteristic.ProgrammableSwitchEvent,
+        Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
+      );
     }
     this.prevPumpOn = status.pumpOn;
     this.status = status;
@@ -117,20 +135,16 @@ export class WateringSystemAccessory {
     this.valveService.updateCharacteristic(Characteristic.SetDuration, (status.pumpManualDuration || 0) * 60);
     this.valveService.updateCharacteristic(Characteristic.RemainingDuration, this.computeRemainingSeconds(status));
 
-    this.cycleSwitch.updateCharacteristic(Characteristic.On, status.pumpCycleOn);
-    this.intermittentSwitch.updateCharacteristic(
-      Characteristic.On, status.pumpCycleMode === CycleWateringMode.INTERMITTENT,
-    );
-
+    this.cycleWateringSwitch.updateCharacteristic(Characteristic.On, status.pumpCycleOn);
     this.leakService.updateCharacteristic(Characteristic.LeakDetected, status.errors.lowWater ? 1 : 0);
   }
 
-  // Pulses MotionDetected true for 5 s then resets — enough for Home app to send a notification.
-  private triggerMotionSensor(sensor: Service): void {
-    sensor.updateCharacteristic(this.platform.Characteristic.MotionDetected, true);
-    setTimeout(() => {
-      sensor.updateCharacteristic(this.platform.Characteristic.MotionDetected, false);
-    }, 5000);
+  private removeStaleService(serviceType: typeof Service.prototype.constructor, subtype: string): void {
+    const stale = this.accessory.getServiceById(serviceType as never, subtype);
+    if (stale) {
+      this.platform.log.debug(`Removing stale service: ${subtype}`);
+      this.accessory.removeService(stale);
+    }
   }
 
   private computeRemainingSeconds(status: WateringSystemStatus): number {
@@ -144,7 +158,7 @@ export class WateringSystemAccessory {
     return this.accessory.context.device.serialNumber;
   }
 
-  // --- Valve ---
+  // --- Pump (Valve) ---
 
   private getActive(): CharacteristicValue {
     return this.status ? (this.status.pumpMode > 0 ? 1 : 0) : 0;
@@ -178,36 +192,20 @@ export class WateringSystemAccessory {
     return this.status ? this.computeRemainingSeconds(this.status) : 0;
   }
 
-  // --- Auto Cycle switch ---
+  // --- Cycle Watering ---
 
-  private getCycleOn(): CharacteristicValue {
+  private getCycleWatering(): CharacteristicValue {
     return this.status?.pumpCycleOn ?? false;
   }
 
-  private async setCycleOn(value: CharacteristicValue): Promise<void> {
+  private async setCycleWatering(value: CharacteristicValue): Promise<void> {
     if (!this.status) {
       return;
     }
     await this.platform.mqttClient.publishStatus(this.serial, { ...this.status, pumpCycleOn: value as boolean });
   }
 
-  // --- Intermittent Mode switch ---
-
-  private getIntermittentMode(): CharacteristicValue {
-    return this.status?.pumpCycleMode === CycleWateringMode.INTERMITTENT;
-  }
-
-  private async setIntermittentMode(value: CharacteristicValue): Promise<void> {
-    if (!this.status) {
-      return;
-    }
-    await this.platform.mqttClient.publishStatus(this.serial, {
-      ...this.status,
-      pumpCycleMode: value ? CycleWateringMode.INTERMITTENT : CycleWateringMode.CONTINUOUS,
-    });
-  }
-
-  // --- Leak sensor ---
+  // --- Low Water ---
 
   private getLeakDetected(): CharacteristicValue {
     return this.status?.errors.lowWater ? 1 : 0;
