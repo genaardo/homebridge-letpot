@@ -7,18 +7,23 @@ const UUID_LAST_WATERED    = 'A9E3F1B2-C4D5-4E6F-A7B8-C9D0E1F20001';
 const UUID_NEXT_WATERING   = 'A9E3F1B2-C4D5-4E6F-A7B8-C9D0E1F20002';
 const UUID_WATERING_REASON = 'A9E3F1B2-C4D5-4E6F-A7B8-C9D0E1F20003';
 
+// How long the occupancy sensors stay triggered before auto-resetting (ms)
+const NOTIFICATION_RESET_MS = 5000;
+
 export class WateringSystemAccessory {
   private valveService: Service;
   private cycleWateringSwitch: Service;
   private leakService: Service;
-  private wateringStartedSwitch: Service;
-  private wateringEndedSwitch: Service;
+  private wateringStartedSensor: Service;
+  private wateringEndedSensor: Service;
   private lastWateredChar: Characteristic;
   private nextWateringChar: Characteristic;
   private wateringReasonChar: Characteristic;
 
   private status: WateringSystemStatus | null = null;
   private prevPumpOn: boolean | null = null;
+  private wateringStartedResetTimer: ReturnType<typeof setTimeout> | null = null;
+  private wateringEndedResetTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly platform: LetPotPlatform,
@@ -32,6 +37,12 @@ export class WateringSystemAccessory {
     this.removeStaleService(Service.MotionSensor, 'pump-stopped');
     this.removeStaleService(Service.Switch, 'intermittent-mode');
     this.removeStaleService(Service.Switch, 'auto-cycle');
+    this.removeStaleService(Service.StatelessProgrammableSwitch, 'watering-started');
+    this.removeStaleService(Service.StatelessProgrammableSwitch, 'watering-ended');
+    const staleServiceLabel = this.accessory.getService(Service.ServiceLabel);
+    if (staleServiceLabel) {
+      this.accessory.removeService(staleServiceLabel);
+    }
 
     // --- Accessory information ---
     accessory.getService(Service.AccessoryInformation)!
@@ -67,18 +78,18 @@ export class WateringSystemAccessory {
 
     // --- Custom characteristics (Eve / Home+ only) ---
     // Unix timestamps (uint32, seconds since 1970). Apple Home ignores unknown UUIDs.
-    this.lastWateredChar = new Characteristic('Last Watered', UUID_LAST_WATERED, {
-      format: Formats.UINT32, perms: [Perms.NOTIFY, Perms.PAIRED_READ],
-    });
-    this.nextWateringChar = new Characteristic('Next Watering', UUID_NEXT_WATERING, {
-      format: Formats.UINT32, perms: [Perms.NOTIFY, Perms.PAIRED_READ],
-    });
-    this.wateringReasonChar = new Characteristic('Last Watering Reason', UUID_WATERING_REASON, {
-      format: Formats.UINT8, perms: [Perms.NOTIFY, Perms.PAIRED_READ], minValue: 0, maxValue: 4,
-    });
-    this.valveService.addCharacteristic(this.lastWateredChar);
-    this.valveService.addCharacteristic(this.nextWateringChar);
-    this.valveService.addCharacteristic(this.wateringReasonChar);
+    this.lastWateredChar = this.getOrAddCharacteristic(
+      this.valveService, 'Last Watered', UUID_LAST_WATERED,
+      { format: Formats.UINT32, perms: [Perms.NOTIFY, Perms.PAIRED_READ] },
+    );
+    this.nextWateringChar = this.getOrAddCharacteristic(
+      this.valveService, 'Next Watering', UUID_NEXT_WATERING,
+      { format: Formats.UINT32, perms: [Perms.NOTIFY, Perms.PAIRED_READ] },
+    );
+    this.wateringReasonChar = this.getOrAddCharacteristic(
+      this.valveService, 'Last Watering Reason', UUID_WATERING_REASON,
+      { format: Formats.UINT8, perms: [Perms.NOTIFY, Perms.PAIRED_READ], minValue: 0, maxValue: 4 },
+    );
 
     // --- Cycle Watering (Switch) ---
     // Matches the "Cycle Watering" toggle in the LetPot app (pump_cycle_on)
@@ -105,50 +116,34 @@ export class WateringSystemAccessory {
     this.leakService.getCharacteristic(Characteristic.LeakDetected)
       .onGet(this.getLeakDetected.bind(this));
 
-    // --- Event switches (StatelessProgrammableSwitch) ---
-    // Fire a single-press event on pump state transitions.
-    // Users set up automations in the Home app (or Eve/Home+) to get notifications.
-    // Note: Apple Home shows these as "#1" / "#2"; third-party apps show the full name.
-    const serviceLabel = accessory.getService(Service.ServiceLabel)
-      ?? accessory.addService(Service.ServiceLabel);
-    serviceLabel.setCharacteristic(
-      Characteristic.ServiceLabelNamespace,
-      Characteristic.ServiceLabelNamespace.ARABIC_NUMERALS,
-    );
+    // --- Watering Started / Ended (OccupancySensor) ---
+    // Briefly triggers on pump state transitions so users can enable native Home app
+    // notifications without needing Shortcuts. Auto-resets after NOTIFICATION_RESET_MS.
+    this.wateringStartedSensor = accessory.getServiceById(Service.OccupancySensor, 'watering-started')
+      ?? accessory.addService(Service.OccupancySensor, 'Watering Started', 'watering-started');
 
-    this.wateringStartedSwitch = accessory.getServiceById(Service.StatelessProgrammableSwitch, 'watering-started')
-      ?? accessory.addService(Service.StatelessProgrammableSwitch, 'Watering Started', 'watering-started');
-
-    this.wateringStartedSwitch
+    this.wateringStartedSensor
       .setCharacteristic(Characteristic.Name, 'Watering Started')
-      .setCharacteristic(Characteristic.ConfiguredName, 'Watering Started')
-      .setCharacteristic(Characteristic.ServiceLabelIndex, 1);
+      .setCharacteristic(Characteristic.ConfiguredName, 'Watering Started');
 
-    this.wateringStartedSwitch.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
-      .setProps({ validValues: [Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS] });
+    this.wateringEndedSensor = accessory.getServiceById(Service.OccupancySensor, 'watering-ended')
+      ?? accessory.addService(Service.OccupancySensor, 'Watering Ended', 'watering-ended');
 
-    this.wateringEndedSwitch = accessory.getServiceById(Service.StatelessProgrammableSwitch, 'watering-ended')
-      ?? accessory.addService(Service.StatelessProgrammableSwitch, 'Watering Ended', 'watering-ended');
-
-    this.wateringEndedSwitch
+    this.wateringEndedSensor
       .setCharacteristic(Characteristic.Name, 'Watering Ended')
-      .setCharacteristic(Characteristic.ConfiguredName, 'Watering Ended')
-      .setCharacteristic(Characteristic.ServiceLabelIndex, 2);
-
-    this.wateringEndedSwitch.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
-      .setProps({ validValues: [Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS] });
+      .setCharacteristic(Characteristic.ConfiguredName, 'Watering Ended');
   }
 
   updateStatus(status: WateringSystemStatus): void {
     const { Characteristic } = this.platform;
 
-    // Detect pump on/off transitions and fire the appropriate event switch
+    // Detect pump on/off transitions and briefly trigger the appropriate sensor
     if (this.prevPumpOn !== null && status.pumpOn !== this.prevPumpOn) {
-      const eventSwitch = status.pumpOn ? this.wateringStartedSwitch : this.wateringEndedSwitch;
-      eventSwitch.updateCharacteristic(
-        Characteristic.ProgrammableSwitchEvent,
-        Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
-      );
+      if (status.pumpOn) {
+        this.triggerSensor(this.wateringStartedSensor, 'wateringStartedResetTimer');
+      } else {
+        this.triggerSensor(this.wateringEndedSensor, 'wateringEndedResetTimer');
+      }
     }
     this.prevPumpOn = status.pumpOn;
     this.status = status;
@@ -168,6 +163,38 @@ export class WateringSystemAccessory {
       status.pumpWorksNextTime ? Math.floor(status.pumpWorksNextTime.getTime() / 1000) : 0,
     );
     this.wateringReasonChar.updateValue(status.pumpWorksLatestReason);
+  }
+
+  private triggerSensor(sensor: Service, timerKey: 'wateringStartedResetTimer' | 'wateringEndedResetTimer'): void {
+    const { Characteristic } = this.platform;
+    if (this[timerKey]) {
+      clearTimeout(this[timerKey]!);
+    }
+    sensor.updateCharacteristic(
+      Characteristic.OccupancyDetected,
+      Characteristic.OccupancyDetected.OCCUPANCY_DETECTED,
+    );
+    this[timerKey] = setTimeout(() => {
+      sensor.updateCharacteristic(
+        Characteristic.OccupancyDetected,
+        Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED,
+      );
+      this[timerKey] = null;
+    }, NOTIFICATION_RESET_MS);
+  }
+
+  private getOrAddCharacteristic(
+    service: Service,
+    name: string,
+    uuid: string,
+    props: ConstructorParameters<typeof Characteristic>[2],
+  ): Characteristic {
+    return service.characteristics.find(c => c.UUID === uuid)
+      ?? (() => {
+        const char = new this.platform.Characteristic(name, uuid, props);
+        service.addCharacteristic(char);
+        return char;
+      })();
   }
 
   private removeStaleService(serviceType: typeof Service.prototype.constructor, subtype: string): void {

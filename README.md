@@ -20,10 +20,10 @@ Each device is exposed to HomeKit as a set of services:
 | | Remaining Duration | Countdown to end of current watering run |
 | **Switch** "Cycle Watering" | On | Enable / disable the automated cycling schedule |
 | **Leak Sensor** "Low Water" | Leak Detected | Fires when the device reports low water |
-| **Stateless Switch** "Watering Started" | Single Press | Fires each time the pump turns on |
-| **Stateless Switch** "Watering Ended" | Single Press | Fires each time the pump turns off |
+| **Occupancy Sensor** "Watering Started" | Occupancy Detected | Briefly triggers each time the pump turns on |
+| **Occupancy Sensor** "Watering Ended" | Occupancy Detected | Briefly triggers each time the pump turns off |
 
-The two stateless switches ("Watering Started" / "Watering Ended") are designed for automations and notifications. In the Home app or a third-party app like Eve or Home+, create an automation triggered by a single press on either switch — for example, to send a notification or run a shortcut whenever watering begins or ends.
+The two occupancy sensors ("Watering Started" / "Watering Ended") trigger for 5 seconds on each pump transition then reset automatically. To get push notifications, long-press each tile in the Home app → settings (gear icon) → enable **Allow Notifications**. No Shortcuts or automations required.
 
 The plugin uses LetPot's cloud MQTT broker for real-time push updates, so state changes in the LetPot iOS app are reflected in HomeKit immediately.
 
@@ -130,19 +130,9 @@ A few ideas for what you can do once the plugin is running. All of these use the
 
 ### Watering notifications
 
-The "Watering Started" and "Watering Ended" stateless switches fire a single-press event every time the pump turns on or off.
+The "Watering Started" and "Watering Ended" occupancy sensors briefly trigger for 5 seconds each time the pump turns on or off, then reset automatically.
 
-**Simplest — native Home notification**
-
-Long-press the **Watering Started** tile → tap the settings icon (gear) → enable **Allow Notifications**. HomeKit will send a push notification whenever the switch fires. Repeat for **Watering Ended**. Each is independently toggleable.
-
-**Custom message — via Shortcuts**
-
-1. In the Shortcuts app, create a shortcut with a **Send Notification** action and your desired message (e.g. "Watering started").
-2. In the Home app, go to **Automations → Add Automation** and choose **An Accessory is Controlled**.
-3. Select **Watering Started**, then **Single Press**.
-4. Set the action to **Run Shortcut** and pick the shortcut you created.
-5. Repeat for **Watering Ended** with a separate shortcut.
+To enable push notifications: long-press the **Watering Started** tile → tap the settings icon (gear) → enable **Allow Notifications**. Repeat for **Watering Ended**. That's it — no Shortcuts or automations needed. Each sensor is independently toggleable.
 
 ### Low water alert
 
