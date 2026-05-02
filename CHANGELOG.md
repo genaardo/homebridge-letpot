@@ -2,39 +2,34 @@
 
 ## v0.4.0 - 2026-05-02
 
-- Update author name
+Improved HomeKit service names and notification model.
 
-## v0.3.0 - 2026-05-02
-
-- Add GitHub Actions workflows for CI and automated npm releases
-- Add HomeKit automation scheduling guide to README
-- Add guide for variable-duration watering schedules
-
-## v0.2.0 - 2026-05-02
-
-- Replace motion sensors with stateless programmable switches ("Watering Started" / "Watering Ended") for pump state events
 - Rename Valve service to "Pump" and Switch service to "Cycle Watering" to match LetPot app terminology
-- Add ConfiguredName characteristic to all services so the Home app displays correct names
-- Remove "Intermittent Mode" switch (watering mode preserved internally)
+- Replace motion sensors ("Pump Started" / "Pump Stopped") with stateless programmable switches ("Watering Started" / "Watering Ended") that fire a single-press event on each pump transition — use these to trigger automations or notifications in the Home app, Eve, or Home+
+- Add ConfiguredName characteristic to all services so the Home app displays correct tile names
+- Remove "Intermittent Mode" switch — watering mode is preserved internally and remains configurable from the LetPot app
 - Remove notifyPumpOn / notifyPumpOff config options (no longer needed)
-- Automatically clean up stale services from previous plugin versions on first launch
+- Automatically remove stale services from previous plugin versions on first launch
+- Add GitHub Actions for CI and automated releases
 
 ## v0.1.2 - 2026-04-28
 
-- Remove peerDependencies to fix Homebridge verified plugin checks
-- Move homebridge to devDependencies only so it is not installed by consumers
+- Remove peerDependencies so homebridge and hap-nodejs are not auto-installed alongside the plugin (npm 7+ behaviour)
+- Declare Homebridge compatibility via engines.homebridge instead
 
 ## v0.1.1 - 2026-04-27
 
-- Fix Homebridge verification: correct config.schema.json required field format
-- Fix Homebridge verification: remove hap-nodejs from dependencies
+- Fix config schema: move required fields to array at object level (valid JSON Schema)
+- Remove homebridge and hap-nodejs from devDependencies to prevent duplicate installs
 
 ## v0.1.0 - 2026-04-26
 
-- Initial release
-- Support for LetPot DI-2 (ISE05) and DI-3 (ISE06) watering systems
-- Valve service with Active, In Use, Set Duration, and Remaining Duration
-- Cycle Watering switch
-- Low Water leak sensor
+Initial release supporting LetPot DI-2 (ISE05) and DI-3 (ISE06).
+
+- Valve service (irrigation) — scheduled watering on/off, pump running indicator, manual run duration and countdown
+- Switch "Auto Cycle" — enable/disable automated cycling schedule
+- Switch "Intermittent Mode" — continuous vs. intermittent cycle mode
+- Leak Sensor "Low Water" — water level alert
+- Optional motion sensors for pump start/stop notifications
 - Real-time updates via LetPot cloud MQTT broker
-- Automatic token refresh every 50 minutes
+- Automatic access token refresh every 50 minutes
