@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.3 - 2026-05-19
+
+- feat: clean shutdown handler and verified-by-homebridge badge
+
+
 ## v0.4.2 - 2026-05-02
 
 - feat: replace stateless switches with occupancy sensors for native Home app notifications
