@@ -1,5 +1,7 @@
 # homebridge-letpot
 
+[![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=for-the-badge&logoColor=%23FFFFFF&logo=homebridge)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
+
 [![npm](https://img.shields.io/npm/v/homebridge-letpot)](https://www.npmjs.com/package/homebridge-letpot)
 [![npm](https://img.shields.io/npm/dt/homebridge-letpot)](https://www.npmjs.com/package/homebridge-letpot)
 [![GitHub](https://img.shields.io/github/license/genaardo/homebridge-letpot)](LICENSE)

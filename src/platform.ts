@@ -22,6 +22,7 @@ export class LetPotPlatform implements DynamicPlatformPlugin {
 
   private readonly apiClient: LetPotApiClient;
   public mqttClient!: LetPotMqttClient;
+  private tokenRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     public readonly log: Logger,
@@ -36,6 +37,10 @@ export class LetPotPlatform implements DynamicPlatformPlugin {
       this.initialize().catch(err => {
         this.log.error('Failed to initialize LetPot platform:', (err as Error).message);
       });
+    });
+
+    this.api.on('shutdown', () => {
+      this.shutdown();
     });
   }
 
@@ -78,11 +83,20 @@ export class LetPotPlatform implements DynamicPlatformPlugin {
     }
 
     // Refresh the access token every 50 minutes to stay ahead of expiry
-    setInterval(() => {
+    this.tokenRefreshTimer = setInterval(() => {
       this.apiClient.refreshToken().catch(err => {
         this.log.warn('LetPot token refresh failed:', (err as Error).message);
       });
     }, 50 * 60 * 1000);
+  }
+
+  private shutdown(): void {
+    if (this.tokenRefreshTimer) {
+      clearInterval(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
+    }
+    this.mqttClient?.disconnect();
+    this.log.debug('LetPot platform shutdown complete');
   }
 
   private isWateringSystem(device: LetPotDevice): boolean {
