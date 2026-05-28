@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.0 - 2026-05-28
+
+- feat: add Run Pump switch for HomeKit automations and Shortcuts
+- ci: add id-token write permission to release workflow
+- chore: drop EOL Node 20 from CI matrix and bump checkout to v5
+- chore: bump setup-node to v5 and update Node.js versions
+
+
 ## v0.4.3 - 2026-05-19
 
 - feat: clean shutdown handler and verified-by-homebridge badge
