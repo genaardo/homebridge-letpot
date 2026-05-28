@@ -16,14 +16,17 @@ Each device is exposed to HomeKit as a set of services:
 
 | Service | Characteristic | Description |
 |---|---|---|
-| **Valve** "Pump" | Active | Enable / disable scheduled watering (`pump_mode`) |
+| **Valve** "Pump" | Active | Enable / disable the pump (`pump_mode`) |
 | | In Use | Live indicator — pump is currently running |
 | | Set Duration | Manual run duration in seconds |
 | | Remaining Duration | Countdown to end of current watering run |
+| **Switch** "Run Pump" | On | Same on/off control as the Valve, exposed as a Switch for automations (see note below) |
 | **Switch** "Cycle Watering" | On | Enable / disable the automated cycling schedule |
 | **Leak Sensor** "Low Water" | Leak Detected | Fires when the device reports low water |
 | **Occupancy Sensor** "Watering Started" | Occupancy Detected | Briefly triggers each time the pump turns on |
 | **Occupancy Sensor** "Watering Ended" | Occupancy Detected | Briefly triggers each time the pump turns off |
+
+> **Why two pump controls?** Apple Home's time-based automations and Shortcuts only surface Switch services — Valve services are filtered out regardless of valve type. The **Pump** valve is still the right place to set run duration (via the duration slider). The **Run Pump** switch is its automation-compatible companion: use it in automations and Shortcuts, and it will start the pump for whatever duration is currently set on the Valve tile.
 
 The two occupancy sensors ("Watering Started" / "Watering Ended") trigger for 5 seconds on each pump transition then reset automatically. To get push notifications, long-press each tile in the Home app → settings (gear icon) → enable **Allow Notifications**. No Shortcuts or automations required.
 
@@ -111,18 +114,20 @@ Add the platform to your Homebridge `config.json`, or configure it through the H
 
 HomeKit has no native schedule editor for irrigation, but Home app **Automations** work great as a replacement and are more flexible than the LetPot app's built-in scheduler. You can add conditions (e.g. only on weekdays, only when someone is home), use different durations on different days, chain multiple actions, or trigger Shortcuts. If you set up HomeKit automations, disable the corresponding schedule in the LetPot app to avoid both firing at the same time.
 
+> **Important:** Use the **Run Pump** switch (not the Pump valve) when creating automations. Apple Home and Shortcuts filter out Valve services from their action pickers. Set your desired run duration on the **Pump** valve tile first — it persists on the device between runs.
+
 **Fixed duration (simplest)**
 
-1. In the Home app, tap the Pump tile and adjust the **duration** slider to your desired run time (e.g. 15 minutes). This value is saved to the device.
-2. Create a time-based automation at your desired start time (e.g. 06:00) with the action: turn the **Pump** on.
+1. In the Home app, tap the **Pump** tile and adjust the **duration** slider to your desired run time (e.g. 15 minutes). This value is saved to the device and remembered between runs.
+2. Create a time-based automation at your desired start time (e.g. 06:00) with the action: turn **Run Pump** on.
 3. The pump runs for the configured duration and turns off automatically — no second automation needed.
 
 **Variable duration (e.g. longer on weekends)**
 
 Set the Pump duration slider to a value longer than your longest intended watering window (e.g. 60 minutes). Then create two automations per schedule:
 
-- **On** automation at 06:00 → turn Pump on
-- **Off** automation at 06:15 (or 06:30 on weekends, etc.) → turn Pump off
+- **On** automation at 06:00 → turn **Run Pump** on
+- **Off** automation at 06:15 (or 06:30 on weekends, etc.) → turn **Run Pump** off
 
 The off automation controls the actual run time; the 60-minute duration acts as a safety backstop and never triggers as long as the off automation fires first.
 
@@ -142,11 +147,11 @@ The "Low Water" leak sensor triggers HomeKit's built-in leak notifications autom
 
 ### "Water my plants" Siri shortcut
 
-You can already say "Hey Siri, turn on Pump" and it works. For something more natural, open the **Shortcuts** app, create a shortcut that turns the Pump on via HomeKit, and name it "Water my plants." Siri will run it on command.
+You can say **"Hey Siri, turn on Run Pump"** and it works out of the box. For a more natural phrase, open the **Shortcuts** app, create a shortcut that turns **Run Pump** on via HomeKit, and name it "Water my plants" — then **"Hey Siri, water my plants"** works too. Both approaches are valid; the shortcut just lets you pick any phrase you like.
 
 ### Morning watering scene
 
-Create a scene called "Good Morning" that turns the Pump on alongside other actions (lights, coffee maker, etc.). The pump runs for its configured duration and shuts off on its own.
+Create a scene called "Good Morning" that turns **Run Pump** on alongside other actions (lights, coffee maker, etc.). The pump runs for its configured duration and shuts off on its own.
 
 ### Vacation mode
 
@@ -156,6 +161,35 @@ Before leaving for a trip, run a "Leaving for a few days" shortcut or scene that
 - Optionally bumps the Pump duration to a longer value for deeper watering
 
 Pair it with a **Low Water** notification so you know if the tank runs dry while you are gone.
+
+### Turn on grow lights after watering
+
+Plants absorb light most effectively right after watering. Trigger your grow lights (or a smart plug powering them) when the **Watering Ended** sensor fires:
+
+- Trigger: **Watering Ended** detects occupancy
+- Action: turn grow light on
+
+Add a separate time-based automation to turn the light off after your desired light period (e.g. 16 hours later), or set it to turn off at sunset if the plants are near a window.
+
+### Garden ambiance when watering starts
+
+If your plants are in a visible spot, make watering a moment worth noticing. When **Watering Started** triggers:
+
+- Dim nearby lights to a warm tone (signals "plants are drinking")
+- Turn on a small fan for air circulation — this helps prevent mould after watering and strengthens stems
+- Turn the fan off when **Watering Ended** fires
+
+### Know your plants were watered while you were out
+
+When **Watering Started** fires, trigger a notification via a Shortcut or a HomeKit-connected notification app. Useful for vacation mode or just peace of mind on busy days — you get a quiet confirmation that the plants are being looked after without having to check the LetPot app.
+
+### Pause a robot vacuum during watering
+
+If your robot vacuum runs on a schedule that could overlap with watering (especially for floor plants or drip systems), use **Watering Started** to send it home:
+
+- Trigger: **Watering Started** detects occupancy
+- Action: turn off / dock the vacuum (via its HomeKit accessory or a Shortcut)
+- Resume it when **Watering Ended** fires
 
 ### Skip watering when it rains
 

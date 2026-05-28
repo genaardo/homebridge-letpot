@@ -12,6 +12,7 @@ const NOTIFICATION_RESET_MS = 5000;
 
 export class WateringSystemAccessory {
   private valveService: Service;
+  private runPumpSwitch: Service;
   private cycleWateringSwitch: Service;
   private leakService: Service;
   private wateringStartedSensor: Service;
@@ -91,6 +92,20 @@ export class WateringSystemAccessory {
       { format: Formats.UINT8, perms: [Perms.NOTIFY, Perms.PAIRED_READ], minValue: 0, maxValue: 4 },
     );
 
+    // --- Run Pump (Switch) ---
+    // Mirrors the Valve's Active characteristic as a Switch so it appears in
+    // Apple Home time-based automations and Shortcuts (Valve services are hidden there).
+    this.runPumpSwitch = accessory.getServiceById(Service.Switch, 'run-pump')
+      ?? accessory.addService(Service.Switch, 'Run Pump', 'run-pump');
+
+    this.runPumpSwitch
+      .setCharacteristic(Characteristic.Name, 'Run Pump')
+      .setCharacteristic(Characteristic.ConfiguredName, 'Run Pump');
+
+    this.runPumpSwitch.getCharacteristic(Characteristic.On)
+      .onGet(this.getRunPump.bind(this))
+      .onSet(this.setRunPump.bind(this));
+
     // --- Cycle Watering (Switch) ---
     // Matches the "Cycle Watering" toggle in the LetPot app (pump_cycle_on)
     this.cycleWateringSwitch = accessory.getServiceById(Service.Switch, 'cycle-watering')
@@ -153,6 +168,7 @@ export class WateringSystemAccessory {
     this.valveService.updateCharacteristic(Characteristic.SetDuration, (status.pumpManualDuration || 0) * 60);
     this.valveService.updateCharacteristic(Characteristic.RemainingDuration, this.computeRemainingSeconds(status));
 
+    this.runPumpSwitch.updateCharacteristic(Characteristic.On, status.pumpMode > 0);
     this.cycleWateringSwitch.updateCharacteristic(Characteristic.On, status.pumpCycleOn);
     this.leakService.updateCharacteristic(Characteristic.LeakDetected, status.errors.lowWater ? 1 : 0);
 
@@ -248,6 +264,19 @@ export class WateringSystemAccessory {
 
   private getRemainingDuration(): CharacteristicValue {
     return this.status ? this.computeRemainingSeconds(this.status) : 0;
+  }
+
+  // --- Run Pump ---
+
+  private getRunPump(): CharacteristicValue {
+    return this.status ? this.status.pumpMode > 0 : false;
+  }
+
+  private async setRunPump(value: CharacteristicValue): Promise<void> {
+    if (!this.status) {
+      return;
+    }
+    await this.platform.mqttClient.publishStatus(this.serial, { ...this.status, pumpMode: value ? 1 : 0 });
   }
 
   // --- Cycle Watering ---
